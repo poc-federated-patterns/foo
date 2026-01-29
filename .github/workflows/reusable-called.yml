@@ -1,0 +1,31 @@
+name: Reusable - Called workflow
+
+on:
+  workflow_call:
+    inputs:
+      message:
+        description: "Message from the caller"
+        required: true
+        type: string
+    outputs:
+      received_message:
+        description: "Echo back what we received"
+        value: ${{ jobs.echo.outputs.received_message }}
+
+jobs:
+  echo:
+    runs-on: ubuntu-latest
+    outputs:
+      received_message: ${{ steps.out.outputs.received_message }}
+    steps:
+      - name: Print context
+        run: |
+          echo "✅ Remote workflow running"
+          echo "Repo: ${{ github.repository }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Caller message: ${{ inputs.message }}"
+
+      - name: Set output
+        id: out
+        run: |
+          echo "received_message=${{ inputs.message }}" >> "$GITHUB_OUTPUT"
