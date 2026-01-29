@@ -7,16 +7,36 @@ on:
         description: "Message from the caller"
         required: true
         type: string
+      any_text:
+        description: "Arbitrary text passed by the caller (for testing)"
+        required: true
+        type: string
+    secrets:
+      SECRET_TO_PRINT:
+        description: "Secret value passed from the caller repo (will be masked in logs)"
+        required: true
     outputs:
       received_message:
         description: "Echo back what we received"
         value: ${{ jobs.echo.outputs.received_message }}
+      received_any_text:
+        description: "Echo back any_text we received"
+        value: ${{ jobs.echo.outputs.received_any_text }}
+      secret_sha256:
+        description: "sha256 of the received secret (proof only)"
+        value: ${{ jobs.echo.outputs.secret_sha256 }}
+      secret_length:
+        description: "Length of the received secret (proof only)"
+        value: ${{ jobs.echo.outputs.secret_length }}
 
 jobs:
   echo:
     runs-on: ubuntu-latest
     outputs:
       received_message: ${{ steps.out.outputs.received_message }}
+      received_any_text: ${{ steps.out.outputs.received_any_text }}
+      secret_sha256: ${{ steps.proof.outputs.secret_sha256 }}
+      secret_length: ${{ steps.proof.outputs.secret_length }}
     steps:
       - name: Print context
         run: |
@@ -24,8 +44,30 @@ jobs:
           echo "Repo: ${{ github.repository }}"
           echo "Triggered by: ${{ github.actor }}"
           echo "Caller message: ${{ inputs.message }}"
+          echo "Caller any_text: ${{ inputs.any_text }}"
+
+      - name: Print secret (masked) + proof
+        shell: bash
+        env:
+          SECRET_TO_PRINT: ${{ secrets.SECRET_TO_PRINT }}
+        run: |
+          echo "Secret (will be masked): ${SECRET_TO_PRINT}"
+          echo -n "${SECRET_TO_PRINT}" | shasum -a 256 | awk '{print "Secret sha256: " $1}'
+          echo -n "${SECRET_TO_PRINT}" | wc -c | awk '{print "Secret length: " $1}'
+
+      - name: Set proof outputs
+        id: proof
+        shell: bash
+        env:
+          SECRET_TO_PRINT: ${{ secrets.SECRET_TO_PRINT }}
+        run: |
+          sha="$(echo -n "${SECRET_TO_PRINT}" | shasum -a 256 | awk '{print $1}')"
+          len="$(echo -n "${SECRET_TO_PRINT}" | wc -c | tr -d ' ')"
+          echo "secret_sha256=${sha}" >> "$GITHUB_OUTPUT"
+          echo "secret_length=${len}" >> "$GITHUB_OUTPUT"
 
       - name: Set output
         id: out
         run: |
           echo "received_message=${{ inputs.message }}" >> "$GITHUB_OUTPUT"
+          echo "received_any_text=${{ inputs.any_text }}" >> "$GITHUB_OUTPUT"
