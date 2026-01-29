@@ -1,4 +1,4 @@
-name: Reusable - Called workflow
+name: Reusable - Echo inputs + secret proof
 
 on:
   workflow_call:
