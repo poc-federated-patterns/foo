@@ -1,0 +1,50 @@
+name: Trigger Bar via Dispatch
+
+on:
+    workflow_dispatch:
+        inputs:
+            event_type:
+                type: choice
+                options:
+                    - build-request
+                    - deploy-request
+                default: build-request
+                description: "Event type to dispatch"
+            environment:
+                type: choice
+                options:
+                    - staging
+                    - production
+                default: staging
+                description: "Target environment (for deploy-request)"
+
+jobs:
+    dispatch:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Dispatch to bar (native via github-script)
+              uses: actions/github-script@v7
+              with:
+                  github-token: ${{ secrets.BAR_PAT }}
+                  script: |
+                      await github.rest.repos.createDispatchEvent({
+                        owner: 'poc-federated-patterns',
+                        repo: 'bar',
+                        event_type: '${{ inputs.event_type }}',
+                        client_payload: {
+                          ref: '${{ github.sha }}',
+                          triggered_by: '${{ github.actor }}',
+                          source_repo: '${{ github.repository }}',
+                          source_run_id: '${{ github.run_id }}',
+                          environment: '${{ inputs.environment }}'
+                        }
+                      });
+
+            - name: Log dispatch sent
+              run: |
+                  echo "✅ Dispatch sent to bar"
+                  echo ""
+                  echo "Event type: ${{ inputs.event_type }}"
+                  echo "Note: This is fire-and-forget. Check bar's Actions tab for the result."
+                  echo ""
+                  echo "To get notified when bar completes, see TASK-001-4 (callback pattern)."
